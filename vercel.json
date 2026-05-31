@@ -1,0 +1,17 @@
+   {
+     "version": 2,
+     "functions": {
+       "api/proxy.js": {
+         "runtime": "nodejs20.x",
+         "maxDuration": 10
+       }
+     },
+     "headers": [
+       {
+         "source": "/api/(.*)",
+         "headers": [
+           { "key": "Cache-Control", "value": "no-store" }
+         ]
+       }
+     ]
+   }
