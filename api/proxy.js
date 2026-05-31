@@ -6,63 +6,108 @@ const BIRDEYE_KEY = process.env.BIRDEYE_API_KEY;
 
 module.exports = async function handler(req, res) {
 
-  // ── CORS — allow all origins ──────────────────────────────────────────
+  // ── CORS ─────────────────────────────────────────────────────────────
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "*");
-
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
 
   const { endpoint, wallet, limit = 20 } = req.query;
-
-  if (!wallet) {
-    return res.status(400).json({ error: "wallet address required" });
-  }
+  if (!wallet) return res.status(400).json({ error: "wallet address required" });
 
   try {
 
-    // ── 1. Balance (Solana public RPC) ──────────────────────────────────
+    // ── 1. Balance ────────────────────────────────────────────────────
     if (endpoint === "balance") {
       const r = await fetch("https://api.mainnet-beta.solana.com", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "getBalance",
-          params: [wallet]
-        })
+        body: JSON.stringify({ jsonrpc:"2.0", id:1, method:"getBalance", params:[wallet] })
       });
       const data = await r.json();
-      const sol = (data.result?.value || 0) / 1e9;
-      return res.status(200).json({ sol });
+      return res.status(200).json({ sol: (data.result?.value || 0) / 1e9 });
     }
 
-    // ── 2. Transactions (Helius) ─────────────────────────────────────────
+    // ── 2. Transactions (Helius enhanced) ─────────────────────────────
     if (endpoint === "transactions") {
       const url = `https://api.helius.xyz/v0/addresses/${wallet}/transactions?api-key=${HELIUS_KEY}&limit=${limit}&type=SWAP`;
       const r = await fetch(url);
       if (!r.ok) throw new Error(`Helius error: ${r.status}`);
       const data = await r.json();
 
+      // Collect all unique mints to resolve symbols
+      const mints = new Set();
+      data.forEach(tx => {
+        const swap = tx.events?.swap;
+        if (swap?.tokenInputs?.[0]?.mint)  mints.add(swap.tokenInputs[0].mint);
+        if (swap?.tokenOutputs?.[0]?.mint) mints.add(swap.tokenOutputs[0].mint);
+        // Also check accountData for token info
+        (tx.accountData || []).forEach(a => { if (a.tokenBalanceChanges) {
+          a.tokenBalanceChanges.forEach(c => { if (c.mint) mints.add(c.mint); });
+        }});
+      });
+
+      // Resolve symbols via Helius token metadata
+      const symbolMap = {};
+      if (mints.size > 0) {
+        try {
+          const metaRes = await fetch(`https://api.helius.xyz/v0/token-metadata?api-key=${HELIUS_KEY}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mintAccounts: [...mints], includeOffChain: false, disableCache: false })
+          });
+          if (metaRes.ok) {
+            const metaData = await metaRes.json();
+            metaData.forEach(m => {
+              const sym = m.onChainMetadata?.metadata?.data?.symbol
+                || m.legacyMetadata?.symbol
+                || null;
+              if (sym && m.account) symbolMap[m.account] = sym.trim();
+            });
+          }
+        } catch(e) { /* symbol lookup failed, use mint short form */ }
+      }
+
+      // Known stable mints fallback
+      const KNOWN = {
+        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": "USDC",
+        "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB": "USDT",
+        "So11111111111111111111111111111111111111112":   "SOL",
+        "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So": "mSOL",
+        "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs": "ETH",
+        "9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E": "BTC",
+        "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R": "RAY",
+        "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN":  "JUP",
+        "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263": "BONK",
+        "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm": "WIF",
+      };
+
+      const getSymbol = (mint) => {
+        if (!mint) return "???";
+        return KNOWN[mint] || symbolMap[mint] || mint.slice(0,4)+"…";
+      };
+
       const trades = data.map(tx => {
         const swap = tx.events?.swap;
         const tokenIn  = swap?.tokenInputs?.[0]  || {};
         const tokenOut = swap?.tokenOutputs?.[0] || {};
+
+        // Try to get amounts from nativeInput/nativeOutput too
+        const amtIn  = tokenIn.rawTokenAmount?.tokenAmount  || tokenIn.rawTokenAmount || 0;
+        const amtOut = tokenOut.rawTokenAmount?.tokenAmount || tokenOut.rawTokenAmount || 0;
+
         return {
           signature: tx.signature,
           timeAgo: timeAgo(tx.timestamp),
           source: tx.source || "UNKNOWN",
           tokenIn: {
-            symbol: tokenIn.symbol || tokenIn.tokenStandard || "???",
-            amount: tokenIn.rawTokenAmount?.tokenAmount || 0,
+            symbol: getSymbol(tokenIn.mint),
+            amount: amtIn,
             mint: tokenIn.mint || ""
           },
           tokenOut: {
-            symbol: tokenOut.symbol || tokenOut.tokenStandard || "???",
-            amount: tokenOut.rawTokenAmount?.tokenAmount || 0,
+            symbol: getSymbol(tokenOut.mint),
+            amount: amtOut,
             mint: tokenOut.mint || ""
           }
         };
@@ -71,14 +116,11 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ trades });
     }
 
-    // ── 3. Portfolio (Birdeye) ───────────────────────────────────────────
+    // ── 3. Portfolio (Birdeye) ────────────────────────────────────────
     if (endpoint === "portfolio") {
       const url = `https://public-api.birdeye.so/v1/wallet/token_list?wallet=${wallet}`;
       const r = await fetch(url, {
-        headers: {
-          "X-API-KEY": BIRDEYE_KEY,
-          "x-chain": "solana"
-        }
+        headers: { "X-API-KEY": BIRDEYE_KEY, "x-chain": "solana" }
       });
       if (!r.ok) throw new Error(`Birdeye error: ${r.status}`);
       const data = await r.json();
