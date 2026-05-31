@@ -17,7 +17,7 @@ const ALLOWED_ORIGINS = [
   // Add your own domain here when you deploy the frontend
 ];
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res){
   // ── CORS ──────────────────────────────────────────────────────────────
   const origin = req.headers.origin;
   if (ALLOWED_ORIGINS.includes(origin)) {
