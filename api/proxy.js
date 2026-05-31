@@ -13,16 +13,13 @@ const BIRDEYE_KEY = process.env.BIRDEYE_API_KEY;
 
 const ALLOWED_ORIGINS = [
   "https://claude.ai",
+  "https://claudeai.ai",
   "http://localhost:3000",
-  // Add your own domain here when you deploy the frontend
 ];
 
 module.exports = async function handler(req, res){
   // ── CORS ──────────────────────────────────────────────────────────────
-  const origin = req.headers.origin;
-  if (ALLOWED_ORIGINS.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
