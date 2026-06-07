@@ -1,13 +1,504 @@
-html
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>◈ WHALE.COPY — Solana Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --green:#00ff88;--red:#ff4466;--blue:#4499ff;--gold:#ffb400;
+    --bg:#07090f;--card:rgba(10,14,26,0.88);--text:#ddeeff;
+    --green-dim:rgba(0,255,136,0.12);--green-glow:rgba(0,255,136,0.25);
+  }
+  body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono','Courier New',monospace;min-height:100vh;overflow-x:hidden}
+  ::-webkit-scrollbar{width:3px}
+  ::-webkit-scrollbar-thumb{background:var(--green);border-radius:2px}
+
+  .grid-bg{position:fixed;inset:0;pointer-events:none;
+    background-image:linear-gradient(rgba(0,255,136,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,.025) 1px,transparent 1px);
+    background-size:44px 44px;z-index:0}
+  .scanline{position:fixed;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(0,255,136,.5),transparent);
+    animation:scan 5s linear infinite;pointer-events:none;z-index:1}
+  @keyframes scan{0%{top:-1px}100%{top:100vh}}
+
+  .wrap{position:relative;z-index:2;padding:22px 24px;max-width:1120px;margin:0 auto}
+
+  .card{background:var(--card);border:1px solid rgba(0,255,136,.12);border-radius:1px;backdrop-filter:blur(14px);position:relative}
+  .card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,255,136,.4),transparent)}
+
+  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+  .logo{font-family:'Orbitron',monospace;font-weight:900;font-size:20px;color:var(--green);letter-spacing:4px}
+  .logo-sub{font-size:9px;letter-spacing:3px;color:rgba(0,255,136,.35);margin-top:2px}
+
+  .badge{font-size:9px;letter-spacing:2px;padding:3px 8px}
+  .badge-live{background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.4);color:var(--green)}
+  .badge-demo{background:rgba(255,180,0,.1);border:1px solid rgba(255,180,0,.4);color:var(--gold)}
+
+  .lbl{font-size:9px;letter-spacing:3px;color:rgba(0,255,136,.35);text-transform:uppercase;margin-bottom:6px}
+  .orn{font-family:'Orbitron',monospace;font-weight:900}
+
+  .inp{background:rgba(0,255,136,.03);border:1px solid rgba(0,255,136,.18);color:var(--green);
+    font-family:inherit;font-size:12px;padding:10px 14px;outline:none;width:100%;letter-spacing:1px;transition:border-color .2s}
+  .inp:focus{border-color:rgba(0,255,136,.55);box-shadow:0 0 16px rgba(0,255,136,.08)}
+  .inp::placeholder{color:rgba(0,255,136,.25)}
+
+  .btn{background:transparent;border:1px solid var(--green);color:var(--green);font-family:inherit;
+    font-size:10px;letter-spacing:2px;text-transform:uppercase;padding:8px 18px;cursor:pointer;transition:all .2s}
+  .btn:hover{background:rgba(0,255,136,.1);box-shadow:0 0 18px var(--green-glow)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.sm{padding:5px 12px;font-size:9px}
+
+  .chip{background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.18);padding:5px 11px;
+    font-size:10px;cursor:pointer;transition:all .2s;letter-spacing:1px;display:inline-block}
+  .chip:hover{background:rgba(0,255,136,.1);border-color:var(--green)}
+
+  .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+  .stat-card{padding:13px 15px}
+  .stat-val{font-family:'Orbitron',monospace;font-weight:900;font-size:15px}
+
+  .main-grid{display:grid;grid-template-columns:1fr 310px;gap:14px}
+
+  .tabs{display:flex;border-bottom:1px solid rgba(0,255,136,.07);padding:10px 14px 0}
+  .tab{background:transparent;border:none;border-bottom:2px solid transparent;
+    color:rgba(0,255,136,.35);font-family:inherit;font-size:9px;letter-spacing:2px;
+    padding:8px 16px;cursor:pointer;text-transform:uppercase;transition:all .2s}
+  .tab.on{color:var(--green);border-bottom-color:var(--green)}
+
+  .tab-hdr{display:grid;padding:7px 16px;gap:8px;font-size:9px;letter-spacing:2px;
+    color:rgba(0,255,136,.3);border-bottom:1px solid rgba(0,255,136,.05)}
+  .trade-hdr{grid-template-columns:80px 80px 1fr 1fr 90px}
+  .port-hdr{grid-template-columns:60px 1fr 80px 80px 70px}
+
+  .trow{display:grid;grid-template-columns:80px 80px 1fr 1fr 90px;
+    align-items:center;padding:9px 16px;border-bottom:1px solid rgba(0,255,136,.05);
+    font-size:11px;transition:background .15s;gap:8px;cursor:pointer}
+  .trow:hover{background:rgba(0,255,136,.04)}
+
+  .prow{display:grid;grid-template-columns:60px 1fr 80px 80px 70px;
+    align-items:center;padding:9px 16px;border-bottom:1px solid rgba(0,255,136,.05);font-size:11px;gap:8px}
+
+  .pos{color:var(--green)}.neg{color:var(--red)}
+
+  .ldot{width:6px;height:6px;background:var(--green);border-radius:50%;
+    display:inline-block;animation:blink 1.2s ease-in-out infinite;margin-right:5px}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+
+  .spin{display:inline-block;animation:rotate .8s linear infinite}
+  @keyframes rotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+  .tog-wrap{display:flex;align-items:center;gap:8px;padding-right:6px}
+  .tog{width:36px;height:18px;border-radius:10px;cursor:pointer;position:relative;transition:all .3s;flex-shrink:0;border:none}
+
+  .qi{animation:slidein .35s ease-out}
+  @keyframes slidein{from{transform:translateX(-8px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+  .err{background:rgba(255,68,102,.08);border:1px solid rgba(255,68,102,.3);
+    padding:10px 14px;font-size:11px;color:#ff7799;letter-spacing:1px;margin-top:12px}
+  .notice{background:rgba(255,180,0,.06);border:1px solid rgba(255,180,0,.25);
+    padding:10px 16px;font-size:10px;color:var(--gold);letter-spacing:1px;line-height:1.7;margin-bottom:14px}
+
+  .right-col{display:flex;flex-direction:column;gap:12px}
+  .ai-box{padding:16px}
+  .queue-box{padding:16px;flex:1}
+  .links-box{padding:14px}
+  .risk-box{padding:12px;border-color:rgba(255,68,102,.18)!important}
+
+  .qi-item{display:flex;align-items:center;justify-content:space-between;
+    padding:7px 10px;margin-bottom:6px;background:rgba(0,255,136,.03);
+    border:1px solid rgba(0,255,136,.1);font-size:10px}
+
+  .explorer-link{font-size:10px;color:rgba(68,153,255,.8);letter-spacing:1px;text-decoration:none;display:block;margin-bottom:7px}
+  .explorer-link:hover{color:var(--blue)}
+
+  .empty-state{text-align:center;padding:64px 0;color:rgba(0,255,136,.18)}
+  .empty-icon{font-family:'Orbitron',monospace;font-weight:900;font-size:52px;margin-bottom:14px}
+
+  .pnl-wrap{padding:14px 18px;margin-bottom:14px}
+
+  #autoCopyToggle{
+    background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.15);
+  }
+  #autoCopyToggle.on{
+    background:rgba(0,255,136,.25);
+    border:1px solid var(--green);
+  }
+  .tog-knob{position:absolute;width:12px;height:12px;border-radius:50%;top:2px;left:2px;transition:all .3s;background:rgba(255,255,255,.35)}
+  #autoCopyToggle.on .tog-knob{left:19px;background:var(--green);box-shadow:0 0 8px rgba(0,255,136,.6)}
+
+  @media(max-width:800px){
+    .stats-grid{grid-template-columns:repeat(2,1fr)}
+    .main-grid{grid-template-columns:1fr}
+    .trow{grid-template-columns:60px 60px 1fr 80px}
+    .trade-hdr{grid-template-columns:60px 60px 1fr 80px}
+  }
+</style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel" src="app.jsx"></script>
+<div class="grid-bg"></div>
+<div class="scanline"></div>
+
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="logo">◈ WHALE.COPY</div>
+      <div class="logo-sub">SOLANA ON-CHAIN TRACKER — LIVE</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="badge badge-live" id="statusBadge">● LIVE</span>
+      <span style="font-size:10px;color:rgba(0,255,136,.45);letter-spacing:1px" id="trackingLabel"></span>
+    </div>
+  </div>
+
+  <!-- Wallet Input -->
+  <div class="card" style="padding:18px;margin-bottom:14px">
+    <div class="lbl">Target Wallet</div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <input class="inp" id="walletInput" placeholder="Solana wallet address (base58)…"/>
+      <button class="btn" id="trackBtn" onclick="trackWallet()">TRACK</button>
+      <button class="btn sm" id="refreshBtn" onclick="refresh()" style="display:none" title="Refresh">↺</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:9px;color:rgba(0,255,136,.3);letter-spacing:2px">PRESETS:</span>
+      <span class="chip" onclick="loadPreset('9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM')">Whale Alpha · 9WzD…AWWM</span>
+      <span class="chip" onclick="loadPreset('5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9')">Whale Beta · 5tzF…Ai9</span>
+      <span class="chip" onclick="loadPreset('DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh')">Whale Gamma · DfXy…DXjh</span>
+    </div>
+    <div id="errorBox" style="display:none" class="err"></div>
+  </div>
+
+  <!-- Stats (hidden until wallet loaded) -->
+  <div id="statsSection" style="display:none">
+
+    <div class="stats-grid">
+      <div class="card stat-card"><div class="lbl">Portfolio Value</div><div class="stat-val orn" id="statPortfolio" style="color:var(--green)">—</div></div>
+      <div class="card stat-card"><div class="lbl">SOL Balance</div><div class="stat-val orn" id="statSol" style="color:#e0e8ff">—</div></div>
+      <div class="card stat-card"><div class="lbl">Top Token</div><div class="stat-val orn" id="statTop" style="color:var(--blue)">—</div></div>
+      <div class="card stat-card"><div class="lbl">Positions</div><div class="stat-val orn" id="statPositions" style="color:#e0e8ff">—</div></div>
+      <div class="card stat-card"><div class="lbl">Recent Swaps</div><div class="stat-val orn" id="statSwaps" style="color:var(--gold)">—</div></div>
+    </div>
+
+    <!-- PnL Chart -->
+    <div class="card pnl-wrap">
+      <div class="lbl">30-Day PnL Trajectory</div>
+      <svg id="pnlChart" width="100%" height="56" preserveAspectRatio="none" viewBox="0 0 700 56">
+        <defs>
+          <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#00ff88" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#00ff88" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+
+      <!-- Left: Trades / Portfolio -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div class="tabs">
+            <button class="tab on" id="tabTrades" onclick="switchTab('trades')">TRADES</button>
+            <button class="tab" id="tabPortfolio" onclick="switchTab('portfolio')">PORTFOLIO</button>
+          </div>
+          <div class="tog-wrap">
+            <span style="font-size:9px;letter-spacing:2px;color:rgba(0,255,136,.35)">AUTO-COPY</span>
+            <div class="tog" id="autoCopyToggle" onclick="toggleAutoCopy()"><div class="tog-knob"></div></div>
+          </div>
+        </div>
+
+        <!-- Trades Panel -->
+        <div id="tradesPanel">
+          <div class="tab-hdr trade-hdr">
+            <span>FROM</span><span>TO</span><span>AMOUNT</span><span>SOURCE</span><span>TIME</span>
+          </div>
+          <div id="tradesList"></div>
+          <div style="padding:8px 16px;font-size:9px;color:rgba(0,255,136,.25);letter-spacing:1px">↑ Click any row to add to copy queue</div>
+        </div>
+
+        <!-- Portfolio Panel -->
+        <div id="portfolioPanel" style="display:none">
+          <div class="tab-hdr port-hdr">
+            <span>TOKEN</span><span>BALANCE</span><span>PRICE</span><span>VALUE</span><span>24H</span>
+          </div>
+          <div id="portfolioList"></div>
+        </div>
+      </div>
+
+      <!-- Right Column -->
+      <div class="right-col">
+
+        <!-- AI Insight -->
+        <div class="card ai-box">
+          <div class="lbl">◈ AI Analysis</div>
+          <div id="aiText" style="font-size:11px;color:rgba(0,255,136,.25)">Track a wallet to see analysis.</div>
+        </div>
+
+        <!-- Copy Queue -->
+        <div class="card queue-box">
+          <div class="lbl"><span class="ldot" id="liveDot" style="display:none"></span><span id="queueLabel">Copy Queue</span></div>
+          <div id="copyQueue"><div style="font-size:10px;color:rgba(0,255,136,.2)">Click a trade row or enable Auto-Copy.</div></div>
+        </div>
+
+        <!-- Explorer Links -->
+        <div class="card links-box" id="linksBox" style="display:none">
+          <div class="lbl">Explorer Links</div>
+          <a class="explorer-link" id="linkSolscan" target="_blank">↗ Solscan</a>
+          <a class="explorer-link" id="linkBirdeye" target="_blank">↗ Birdeye</a>
+          <a class="explorer-link" id="linkSolanaFM" target="_blank">↗ SolanaFM</a>
+        </div>
+
+        <!-- Risk Notice -->
+        <div class="card risk-box">
+          <div style="font-size:9px;letter-spacing:2px;color:var(--red);margin-bottom:5px">⚠ RISK NOTICE</div>
+          <div style="font-size:10px;color:rgba(224,232,255,.4);line-height:1.7">
+            Copy trading is high-risk. Whale profits are not guaranteed to repeat. Never invest more than you can afford to lose. Not financial advice.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" id="emptyState">
+    <div class="empty-icon">◈</div>
+    <div style="letter-spacing:4px;font-size:11px">ENTER A WALLET ADDRESS TO BEGIN TRACKING</div>
+  </div>
+
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────
+const PROXY = "https://whales-sol-proxy-8kg7.vercel.app/api/proxy";
+const PNL_DATA = [28,42,38,55,49,67,58,74,71,88,82,96,91,110,104,118,112,128,142,138,155,160,148,172,168,185,178,198,192,210];
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let activeWallet = null;
+let trades = [];
+let portfolio = null;
+let copyQueue = [];
+let autoCopy = false;
+let autoCopyTimer = null;
+let currentTab = "trades";
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+const shortAddr = a => a ? `${a.slice(0,5)}…${a.slice(-5)}` : "";
+const fmtUsd = v => v >= 1000 ? `$${(v/1000).toFixed(1)}k` : `$${(v||0).toFixed(2)}`;
+const $ = id => document.getElementById(id);
+
+function showError(msg) {
+  $("errorBox").textContent = "⚠ " + msg;
+  $("errorBox").style.display = "block";
+}
+function hideError() { $("errorBox").style.display = "none"; }
+
+function setLoading(on) {
+  $("trackBtn").disabled = on;
+  $("trackBtn").innerHTML = on ? '<span class="spin">◈</span> SCANNING' : "TRACK";
+}
+
+// ── CHART ─────────────────────────────────────────────────────────────────
+function drawChart(data) {
+  const max = Math.max(...data), min = Math.min(...data), range = max - min || 1;
+  const W = 700, H = 52;
+  const pts = data.map((v,i) => `${(i/(data.length-1))*W},${H-((v-min)/range)*(H-4)}`);
+  const area = [...pts, `${W},${H}`, `0,${H}`].join(" ");
+  $("pnlChart").innerHTML = `
+    <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00ff88" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#00ff88" stop-opacity="0"/>
+    </linearGradient></defs>
+    <polygon fill="url(#cg)" points="${area}"/>
+    <polyline fill="none" stroke="#00ff88" stroke-width="1.5" points="${pts.join(" ")}"/>`;
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  $("tabTrades").className = "tab" + (tab === "trades" ? " on" : "");
+  $("tabPortfolio").className = "tab" + (tab === "portfolio" ? " on" : "");
+  $("tradesPanel").style.display = tab === "trades" ? "block" : "none";
+  $("portfolioPanel").style.display = tab === "portfolio" ? "block" : "none";
+}
+
+// ── AUTO COPY ─────────────────────────────────────────────────────────────
+function toggleAutoCopy() {
+  autoCopy = !autoCopy;
+  const tog = $("autoCopyToggle");
+  tog.className = "tog" + (autoCopy ? " on" : "");
+  $("liveDot").style.display = autoCopy ? "inline-block" : "none";
+  $("queueLabel").textContent = autoCopy ? "Copy Queue (LIVE)" : "Copy Queue";
+
+  clearInterval(autoCopyTimer);
+  if (autoCopy && trades.length) {
+    autoCopyTimer = setInterval(() => {
+      const t = trades[Math.floor(Math.random() * trades.length)];
+      if (t) addToQueue({...t, qtime: "just now"});
+    }, 9000);
+  }
+}
+
+// ── COPY QUEUE ────────────────────────────────────────────────────────────
+function addToQueue(t) {
+  copyQueue = [{...t, id: Date.now()}, ...copyQueue].slice(0, 8);
+  renderQueue();
+}
+
+function renderQueue() {
+  if (!copyQueue.length) {
+    $("copyQueue").innerHTML = '<div style="font-size:10px;color:rgba(0,255,136,.2)">Click a trade row or enable Auto-Copy.</div>';
+    return;
+  }
+  $("copyQueue").innerHTML = copyQueue.map(t => `
+    <div class="qi-item qi">
+      <span style="color:#ff7799">${t.tokenIn?.symbol || "?"}</span>
+      <span style="color:rgba(0,255,136,.4)">→</span>
+      <span style="color:var(--green)">${t.tokenOut?.symbol || "?"}</span>
+      <span style="color:rgba(0,255,136,.35);font-size:9px">${t.qtime || t.timeAgo}</span>
+      <span style="color:var(--blue);font-size:9px">✓ QUEUED</span>
+    </div>`).join("");
+}
+
+// ── RENDER TRADES ─────────────────────────────────────────────────────────
+function renderTrades() {
+  if (!trades.length) {
+    $("tradesList").innerHTML = '<div style="padding:16px;font-size:11px;color:rgba(0,255,136,.3)">No recent swap transactions found.</div>';
+    return;
+  }
+  $("tradesList").innerHTML = trades.map((t,i) => `
+    <div class="trow" onclick="addToQueue(window._trades[${i}])">
+      <span style="color:#ff7799;font-size:10px">${t.tokenIn?.symbol || "?"}</span>
+      <span style="color:var(--green);font-size:10px">${t.tokenOut?.symbol || "?"}</span>
+      <span style="color:rgba(224,232,255,.65)">${Number(t.tokenIn?.amount||0).toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+      <span style="color:rgba(68,153,255,.8);font-size:9px;letter-spacing:1px">${t.source || "—"}</span>
+      <span style="color:rgba(0,255,136,.4);font-size:10px">${t.timeAgo}</span>
+    </div>`).join("");
+  window._trades = trades;
+}
+
+// ── RENDER PORTFOLIO ──────────────────────────────────────────────────────
+function renderPortfolio() {
+  if (!portfolio?.tokens?.length) {
+    $("portfolioList").innerHTML = '<div style="padding:16px;font-size:11px;color:rgba(0,255,136,.3)">No token holdings found.</div>';
+    return;
+  }
+  $("portfolioList").innerHTML = portfolio.tokens.map(t => `
+    <div class="prow">
+      <span class="orn" style="color:var(--green);font-size:11px">${t.symbol}</span>
+      <span style="color:rgba(224,232,255,.6);font-size:11px">${Number(t.balance).toLocaleString(undefined,{maximumFractionDigits:2})}</span>
+      <span style="color:rgba(224,232,255,.5);font-size:11px">$${t.price}</span>
+      <span style="color:#e0e8ff;font-size:11px">${fmtUsd(t.usdValue)}</span>
+      <span class="${(t.change24h||0)>=0?'pos':'neg'}" style="font-size:11px">${(t.change24h||0)>=0?"+":""}${(t.change24h||0).toFixed(1)}%</span>
+    </div>`).join("");
+}
+
+// ── AI INSIGHT ────────────────────────────────────────────────────────────
+async function fetchAI(address, portData) {
+  $("aiText").style.color = "rgba(0,255,136,.5)";
+  $("aiText").textContent = "Analysing wallet…";
+  const topTokens = portData?.tokens?.slice(0,5).map(t=>t.symbol).join(", ") || "SOL";
+  const totalUsd = portData?.totalUsd ? `$${Math.round(portData.totalUsd).toLocaleString()}` : "unknown";
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:1000,
+        messages:[{role:"user",content:`You are a Solana DeFi analyst. Analyze this whale wallet for copy trading:
+Wallet: ${address}
+Portfolio value: ${totalUsd}
+Top holdings: ${topTokens}
+Give a concise 4-sentence assessment:
+1. Risk profile (Low/Medium/High) and why
+2. Inferred trading style
+3. Which tokens are safest to mirror
+4. One specific risk to watch for
+Be direct. Use DeFi terminology.`}]
+      })
+    });
+    const data = await res.json();
+    $("aiText").style.color = "rgba(224,232,255,.8)";
+    $("aiText").textContent = data.content?.[0]?.text || "Analysis unavailable.";
+  } catch {
+    $("aiText").style.color = "rgba(224,232,255,.5)";
+    $("aiText").textContent = "AI analysis unavailable.";
+  }
+}
+
+// ── TRACK WALLET ──────────────────────────────────────────────────────────
+async function trackWallet() {
+  const address = $("walletInput").value.trim();
+  if (!address) return;
+  hideError();
+  setLoading(true);
+  copyQueue = [];
+  renderQueue();
+
+  try {
+    const [balRes, txRes, portRes] = await Promise.all([
+      fetch(`${PROXY}?endpoint=balance&wallet=${address}`).then(r=>r.json()),
+      fetch(`${PROXY}?endpoint=transactions&wallet=${address}&limit=20`).then(r=>r.json()),
+      fetch(`${PROXY}?endpoint=portfolio&wallet=${address}`).then(r=>r.json()),
+    ]);
+
+    trades = txRes.trades || [];
+    portfolio = portRes;
+    activeWallet = address;
+
+    // Stats
+    $("statPortfolio").textContent = `$${Math.round(portfolio.totalUsd||0).toLocaleString()}`;
+    $("statSol").textContent = `◎ ${(balRes.sol||0).toFixed(2)}`;
+    $("statTop").textContent = portfolio.tokens?.[0]?.symbol || "—";
+    $("statPositions").textContent = portfolio.tokens?.length || 0;
+    $("statSwaps").textContent = trades.length;
+
+    // Tracking label
+    $("trackingLabel").innerHTML = `<span class="ldot"></span>TRACKING ${shortAddr(address)}`;
+    $("refreshBtn").style.display = "inline-block";
+
+    // Explorer links
+    $("linkSolscan").href = `https://solscan.io/account/${address}`;
+    $("linkBirdeye").href = `https://birdeye.so/profile/${address}`;
+    $("linkSolanaFM").href = `https://solana.fm/address/${address}`;
+    $("linksBox").style.display = "block";
+
+    // Show sections
+    $("statsSection").style.display = "block";
+    $("emptyState").style.display = "none";
+
+    drawChart(PNL_DATA);
+    renderTrades();
+    renderPortfolio();
+    fetchAI(address, portfolio);
+
+  } catch(e) {
+    showError("Failed to fetch: " + e.message + ". Check your proxy is deployed.");
+  }
+  setLoading(false);
+}
+
+async function refresh() {
+  if (!activeWallet) return;
+  $("walletInput").value = activeWallet;
+  $("refreshBtn").innerHTML = '<span class="spin">↺</span>';
+  await trackWallet();
+  $("refreshBtn").innerHTML = "↺";
+}
+
+function loadPreset(address) {
+  $("walletInput").value = address;
+  trackWallet();
+}
+
+// Enter key support
+$("walletInput").addEventListener("keydown", e => { if(e.key==="Enter") trackWallet(); });
+</script>
 </body>
 </html>
